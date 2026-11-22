@@ -1,0 +1,270 @@
+# Reusable release for an OpZero plugin repository. It lives beside the
+# marketplace index because every plugin listed here releases the same way.
+#
+# What it does, in order:
+#   1. Checks the plugin: manifests parse and agree on name and version, the
+#      README and license the plugin directory requires are present, every
+#      skill, agent and command has front matter, remote servers are https.
+#   2. Stops quietly if the tag v<version> already has a release, so a push
+#      that does not raise the version is not an error.
+#   3. Builds the portable ZIP packages with the repository's own
+#      scripts/build_openai.py. The build is reproducible.
+#   4. Cuts the GitHub release v<version> with the ZIPs and SHA256SUMS.
+#   5. Refreshes the downloads branch, so the links in PROVIDERS.md keep
+#      pointing at the released packages.
+#
+# To release a plugin: raise "version" in .claude-plugin/plugin.json (and in
+# the other manifests the check names), merge to main. That is all.
+#
+# The plugin directory follows the repository's branch, not the release, so
+# this workflow does not publish to the directory. It gives each version a
+# tag, release notes and downloadable packages.
+#
+# Caller example (.github/workflows/release.yml in a plugin repository):
+#   on:
+#     push: { branches: [main], paths: [".claude-plugin/plugin.json"] }
+#     workflow_dispatch:
+#   permissions: { contents: write }
+#   jobs:
+#     release:
+#       uses: OpZero-sh/plugins/.github/workflows/release-plugin.yml@main
+name: release-plugin
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: "3.12"
+      refresh-downloads:
+        description: Also commit the built packages to the downloads branch.
+        type: boolean
+        default: true
+      draft:
+        description: Create the release as a draft for a person to publish.
+        type: boolean
+        default: false
+    outputs:
+      tag:
+        description: The release tag, for example v1.2.0.
+        value: ${{ jobs.release.outputs.tag }}
+      released:
+        description: "true when this run created the release."
+        value: ${{ jobs.release.outputs.released }}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.plugin.outputs.tag }}
+      released: ${{ steps.publish.outputs.released }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Check the plugin
+        id: plugin
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, re, sys
+
+          root = pathlib.Path(".")
+          errors, notes = [], []
+
+          def load(path):
+              try:
+                  return json.loads((root / path).read_text(encoding="utf-8"))
+              except FileNotFoundError:
+                  errors.append(f"{path} is missing")
+              except ValueError as exc:
+                  errors.append(f"{path} is not valid JSON: {exc}")
+              return {}
+
+          manifest = load(".claude-plugin/plugin.json")
+          name = manifest.get("name", "")
+          version = manifest.get("version", "")
+          if not re.fullmatch(r"[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?", name):
+              errors.append(f"plugin name {name!r} must be lowercase letters, digits and hyphens")
+          if not re.fullmatch(r"\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?", version):
+              errors.append(f"plugin version {version!r} must look like 1.2.3")
+          for key in ("description", "author"):
+              if not manifest.get(key):
+                  errors.append(f".claude-plugin/plugin.json has no {key}")
+
+          # Every other manifest in the repository carries the same name and version.
+          for other in (".muse-plugin/plugin.json", "integrations/openai/plugin.json"):
+              if (root / other).exists():
+                  data = load(other)
+                  for key in ("name", "version"):
+                      if data.get(key) != manifest.get(key):
+                          errors.append(f"{other} {key} is {data.get(key)!r}, expected {manifest.get(key)!r}")
+
+          # README and license, as the plugin directory requires them.
+          readme = root / "README.md"
+          if not readme.exists():
+              errors.append("README.md is missing")
+          else:
+              text = re.sub(r"```.*?```", " ", readme.read_text(encoding="utf-8"), flags=re.S)
+              text = re.sub(r"`[^`]*`", " ", text)
+              if len(re.findall(r"[A-Za-z0-9']+", text)) < 40:
+                  errors.append("README.md has fewer than 40 words outside code blocks")
+          if not (root / "LICENSE").exists() and not manifest.get("license"):
+              errors.append("no LICENSE file and no license in plugin.json")
+
+          # Skills, agents and commands load only with front matter that has a text description.
+          def front_matter(path):
+              text = path.read_text(encoding="utf-8")
+              if not text.startswith("---"):
+                  return None
+              end = text.find("\n---", 3)
+              return None if end < 0 else text[3:end]
+
+          skills = sorted(p for p in (root / "skills").glob("*/SKILL.md")) if (root / "skills").is_dir() else []
+          components = skills + sorted((root / "agents").glob("*.md")) + sorted((root / "commands").glob("*.md"))
+          for path in components:
+              block = front_matter(path)
+              if block is None:
+                  errors.append(f"{path} has no closed front matter")
+                  continue
+              found = re.search(r"^description:[ \t]*(\S.*)?$", block, flags=re.M)
+              if not found:
+                  errors.append(f"{path} front matter has no description")
+              elif (found.group(1) or "").startswith("["):
+                  errors.append(f"{path} description must be text, not a list")
+          for path in skills:
+              block = front_matter(path) or ""
+              declared = re.search(r"^name:[ \t]*[\"']?([^\"'\n]+)", block, flags=re.M)
+              if declared and declared.group(1).strip() != path.parent.name:
+                  errors.append(f"{path} name {declared.group(1).strip()!r} does not match its folder")
+          if not skills:
+              notes.append("no skills found")
+
+          # The Muse manifest names each skill file. Each one has to exist.
+          muse = root / ".muse-plugin/plugin.json"
+          if muse.exists():
+              listed = {s.get("path") for s in load(".muse-plugin/plugin.json").get("capabilities", {}).get("skills", [])}
+              for path in listed:
+                  if path and not (root / path).exists():
+                      errors.append(f".muse-plugin/plugin.json lists {path}, which does not exist")
+              for path in skills:
+                  if path.as_posix() not in listed:
+                      errors.append(f".muse-plugin/plugin.json does not list {path.as_posix()}")
+
+          # Remote servers must be https. Hooks must parse.
+          if (root / ".mcp.json").exists():
+              for key, server in load(".mcp.json").get("mcpServers", {}).items():
+                  url = server.get("url")
+                  if url is not None and not (url == "" or url.startswith(("https://", "wss://", "${user_config."))):
+                      errors.append(f".mcp.json server {key} url is not https")
+                  if url is not None and server.get("type") not in ("http", "sse", "ws"):
+                      errors.append(f".mcp.json server {key} needs type http, sse or ws")
+          if (root / "hooks/hooks.json").exists():
+              hooks = load("hooks/hooks.json")
+              if hooks and not isinstance(hooks.get("hooks"), dict) and not isinstance(hooks.get("modules"), list):
+                  errors.append("hooks/hooks.json needs a hooks object or a modules array")
+
+          # Files the directory refuses or holds.
+          for path in root.rglob("*"):
+              parts = path.relative_to(root).parts
+              if parts[0] in (".git", "dist"):
+                  continue
+              if path.name in (".DS_Store", "Thumbs.db", "desktop.ini") or "__MACOSX" in parts:
+                  errors.append(f"system file {path}")
+              if path.is_symlink():
+                  errors.append(f"symbolic link {path}")
+              elif path.is_file() and path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".woff", ".woff2", ".ttf", ".otf") and path.stat().st_size > 256 * 1024:
+                  notes.append(f"{path} is over 256 KiB, which the directory holds for a reviewer")
+
+          for note in notes:
+              print(f"::notice::{note}")
+          for error in errors:
+              print(f"::error::{error}")
+          if errors:
+              sys.exit(1)
+
+          display = manifest.get("displayName") or name
+          with open(os.environ.get("GITHUB_OUTPUT", os.devnull), "a", encoding="utf-8") as out:
+              out.write(f"name={name}\nversion={version}\ntag=v{version}\ndisplay={display}\n")
+          print(f"{display} {version} passed the release checks")
+          PY
+
+      - name: Look for an existing release
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.plugin.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::notice::$TAG is already released. Raise the version in .claude-plugin/plugin.json to cut a new one."
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          elif git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag $TAG exists without a release. Delete the tag or raise the version."
+            exit 1
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the packages
+        if: steps.existing.outputs.found == 'false'
+        run: |
+          python3 scripts/build_openai.py dist
+          cd dist
+          sha256sum *.zip > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Cut the release
+        id: publish
+        if: steps.existing.outputs.found == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.plugin.outputs.tag }}
+          TITLE: ${{ steps.plugin.outputs.display }} ${{ steps.plugin.outputs.version }}
+          DRAFT: ${{ inputs.draft && '--draft' || '' }}
+        run: |
+          gh release create "$TAG" dist/*.zip dist/SHA256SUMS \
+            --target "$GITHUB_SHA" --title "$TITLE" --generate-notes $DRAFT
+          echo "released=true" >> "$GITHUB_OUTPUT"
+
+      - name: Refresh the downloads branch
+        if: steps.existing.outputs.found == 'false' && inputs.refresh-downloads && !inputs.draft
+        env:
+          PLUGIN: ${{ steps.plugin.outputs.name }}
+          TAG: ${{ steps.plugin.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch origin downloads; then
+            git worktree add --detach ../downloads FETCH_HEAD
+          else
+            git worktree add --detach ../downloads
+            git -C ../downloads checkout --orphan downloads
+            git -C ../downloads rm -rfq .
+          fi
+          cd ../downloads
+          rm -f ./*.zip SHA256SUMS
+          cp "$GITHUB_WORKSPACE"/dist/*.zip "$GITHUB_WORKSPACE"/dist/SHA256SUMS .
+          {
+            echo "# Plugin downloads"
+            echo
+            echo "Get the complete portable ZIP or a connector-specific edition from the list below. Each archive includes its product skills and remote MCP configuration. Check its SHA-256 digest against [SHA256SUMS](SHA256SUMS)."
+            echo
+            for file in *.zip; do
+              echo "- [$file](https://raw.githubusercontent.com/$GITHUB_REPOSITORY/downloads/$file)"
+            done
+            echo
+            echo "[Setup and product source](https://github.com/$GITHUB_REPOSITORY/blob/main/PROVIDERS.md)"
+          } > README.md
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The downloads branch already holds these packages."
+          else
+            git commit -q -m "Publish $PLUGIN $TAG packages"
+            git push origin HEAD:refs/heads/downloads
+          fi

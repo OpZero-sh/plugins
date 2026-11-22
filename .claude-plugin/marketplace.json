@@ -1,0 +1,174 @@
+{
+  "name": "opzero",
+  "owner": {
+    "name": "OpZero",
+    "url": "https://opzero.sh"
+  },
+  "metadata": {
+    "description": "OpZero products for research, community, writing, and software."
+  },
+  "plugins": [
+    {
+      "name": "agent-samaritan-ministry",
+      "description": "Find a church community, reach a pastoral care team, volunteer locally, or find a ministry that can help with a practical need.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/agent-samaritan-ministry-plugin"
+      },
+      "category": "community"
+    },
+    {
+      "name": "agent-samaritan-recovery",
+      "description": "Find a peer recovery meeting that fits your day, check the access details, or find support for someone close to you.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/agent-samaritan-recovery-plugin"
+      },
+      "category": "community"
+    },
+    {
+      "name": "bible-study",
+      "description": "Read a passage in the Berean Standard Bible or King James Version, explore a Greek or Hebrew word, and keep your own notes beside the text.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/bible-study-plugin"
+      },
+      "category": "community"
+    },
+    {
+      "name": "sermon-prep",
+      "description": "Build a sermon from the passage outward, with parallel translations, original-language notes, early Christian sources and a private place for the manuscript.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/sermon-prep-plugin"
+      },
+      "category": "community"
+    },
+    {
+      "name": "sacred-calendars",
+      "description": "Look up a church season, a Hebrew date or an upcoming holy day, and put observances from both calendars on the same civil timeline.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/sacred-calendars-plugin"
+      },
+      "category": "community"
+    },
+    {
+      "name": "coastal-conditions",
+      "description": "Pair NOAA tide predictions with the latest buoy readings for a beach, inlet, or harbor.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/coastal-conditions-plugin"
+      },
+      "category": "research"
+    },
+    {
+      "name": "night-sky",
+      "description": "Plan a night outside around visible planets, moonlight, astronomical darkness, and the aurora outlook.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/night-sky-plugin"
+      },
+      "category": "research"
+    },
+    {
+      "name": "earthquake-watch",
+      "description": "Find recent USGS earthquakes near a place and unpack the event record behind a headline or felt report.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/earthquake-watch-plugin"
+      },
+      "category": "research"
+    },
+    {
+      "name": "rv-roadside",
+      "description": "Find US RV repair, parts, or campgrounds and identify the right manual or component information to bring to the shop.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/rv-roadside-plugin"
+      },
+      "category": "research"
+    },
+    {
+      "name": "food-recall-check",
+      "description": "Match product labels, lot codes, and distribution details against FDA food recall enforcement reports.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/food-recall-check-plugin"
+      },
+      "category": "research"
+    },
+    {
+      "name": "federal-rules-watch",
+      "description": "Find recent Federal Register documents, distinguish proposed and final rules, and verify comment deadlines.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/federal-rules-watch-plugin"
+      },
+      "category": "research"
+    },
+    {
+      "name": "poetry-workshop",
+      "description": "Read classic poems closely and workshop the sound and sense of your own lines.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/poetry-workshop-plugin"
+      },
+      "category": "education"
+    },
+    {
+      "name": "met-museum-explorer",
+      "description": "Build a personal tour of The Met with collection records, gallery numbers and questions for close looking.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/met-museum-explorer-plugin"
+      },
+      "category": "education"
+    },
+    {
+      "name": "chess-puzzles",
+      "description": "Practice chess tactics one move at a time with rated Lichess puzzles, graduated hints and a daily challenge.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/chess-puzzles-plugin"
+      },
+      "category": "education"
+    },
+    {
+      "name": "oz-docs",
+      "description": "Write and revise Markdown documents, return to them by name, and publish finished pages.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/oz-docs-plugin"
+      },
+      "category": "productivity"
+    },
+    {
+      "name": "oz-manuscript",
+      "description": "Write and revise a book chapter by chapter, keep passage notes, and check continuity across a private manuscript.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/oz-manuscript-plugin"
+      },
+      "category": "productivity"
+    },
+    {
+      "name": "oz-ide",
+      "description": "Work with branches, make anchored source edits, and review proposals against a versioned repository.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/oz-ide-plugin"
+      },
+      "category": "productivity"
+    },
+    {
+      "name": "opzero-deploy",
+      "description": "Publish a site, preview the result, and restore an earlier release with OpZero.",
+      "source": {
+        "source": "github",
+        "repo": "OpZero-sh/opzero-deploy-plugin"
+      },
+      "category": "productivity"
+    }
+  ]
+}

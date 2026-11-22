@@ -9,7 +9,7 @@ Find a recovery meeting, plan a night under the stars, work through a chess tact
 | Claude Code | Run `/plugin marketplace add OpZero-sh/plugins`, then `/plugin install chess-puzzles@opzero`. Substitute any product slug below. |
 | ChatGPT and Codex | Open a product and follow **Connect with Claude, ChatGPT, Muse Code, or Grok** for its downloadable OpenAI packages and supported setup. Bundled products include individual connector packages for the single-server setup. |
 | Muse Code | Clone a product repo, run `muse plugins install .`, and follow its guide to approve public connections or sign in to private ones. |
-| Grok Build and xAI API | Open a product checkout with `grok --plugin-dir .`, or use its Python example to call Grok with the product’s remote MCP tools. |
+| Grok Build and xAI API | From a product checkout, run `grok plugin install .`, or use its Python example to call Grok with the product’s remote MCP tools. |
 
 Each repository has its own usage guide, skills, and MCP connection details. Claude Code and Grok Build can also discover the specialist agents. Client features such as widgets and hooks vary by host.
 

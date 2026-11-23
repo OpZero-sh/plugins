@@ -7,8 +7,9 @@
 #      skill, agent and command has front matter, remote servers are https.
 #   2. Stops quietly if the tag v<version> already has a release, so a push
 #      that does not raise the version is not an error.
-#   3. Builds the portable ZIP packages with the repository's own
-#      scripts/build_openai.py. The build is reproducible.
+#   3. Builds the portable ZIP packages with tools/build_openai.py from this
+#      catalog. Plugin repositories hold no scripts, because the plugin
+#      directory refuses them. The build is reproducible.
 #   4. Cuts the GitHub release v<version> with the ZIPs and SHA256SUMS.
 #   5. Refreshes the downloads branch, so the links in PROVIDERS.md keep
 #      pointing at the released packages.
@@ -214,7 +215,8 @@ jobs:
       - name: Build the packages
         if: steps.existing.outputs.found == 'false'
         run: |
-          python3 scripts/build_openai.py dist
+          git clone --quiet --depth 1 https://github.com/OpZero-sh/plugins.git "$RUNNER_TEMP/catalog"
+          python3 "$RUNNER_TEMP/catalog/tools/build_openai.py" --root . dist
           cd dist
           sha256sum *.zip > SHA256SUMS
           cat SHA256SUMS

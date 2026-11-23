@@ -56,4 +56,13 @@ Each repository has its own usage guide, skills, and MCP connection details. Cla
 | [Oz IDE](https://github.com/OpZero-sh/oz-ide-plugin) | Read a symbol, edit a branch, and review the change before merging it. | OpZero sign-in |
 | [OpZero Deploy](https://github.com/OpZero-sh/opzero-deploy-plugin) | Publish a site, inspect release history, and restore a working deployment. | OpZero sign-in |
 
+## Tools for people working from a checkout
+
+The product repositories hold skills, agents, manifests and images only, because the Claude plugin directory accepts nothing else from publishers it has not verified. The two scripts they share live here in `tools/`. Run them from a product checkout with this repository cloned beside it. No plugin runs them.
+
+- `tools/build_openai.py` builds the ZIP packages for ChatGPT and Codex. It reads the product's skills, license, icon and `integrations/openai` files, writes ZIP files to the folder you name and makes no network request. Example: `python3 ../plugins/tools/build_openai.py dist`.
+- `tools/grok_example.py` is a sample for the xAI API. It reads the product's `integrations/grok-servers.json`. With `--dry-run` it prints the request and contacts nothing. Without it, the script reads `XAI_API_KEY`, the optional `XAI_MODEL` and any access token variable the server list names, and sends your question to `https://api.x.ai/v1/responses`. Example: `python3 ../plugins/tools/grok_example.py --dry-run 'your question'`.
+
+`media/` holds product videos that the directory does not accept inside a plugin repository.
+
 [OpZero](https://opzero.sh/) · [Privacy](https://opzero.sh/privacy) · [Support](https://opzero.sh/support)
